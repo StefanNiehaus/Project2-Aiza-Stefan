@@ -133,8 +133,7 @@ int main(int argc, char **argv) {
 
     // Wait for ACK
     do {
-      // VLOG(DEBUG, "Sending packet %d to %s", send_base,
-      // inet_ntoa(serveraddr.sin_addr));
+      VLOG(DEBUG, "Sending packet %d to %s", send_base, inet_ntoa(serveraddr.sin_addr));
 
       // random initialization of port for first `sendto` call
       if (sendto(sockfd, sndpkt, TCP_HDR_SIZE + get_data_size(sndpkt), 0,
