@@ -14,7 +14,7 @@ CFLAGS = -Wall -I.
 
 LINKER = gcc -o
 # linking flags here
-LFLAGS   = -Wall
+LFLAGS   = -Wall -g
 
 OBJDIR = ../obj
 

@@ -28,6 +28,7 @@ int main(int argc, char **argv) {
   FILE *fp;
   char buffer[MSS_SIZE];
   struct timeval tp;
+  int expected_seqno = 0;
 
   // check command line arguments
   if (argc != 3) {
@@ -87,16 +88,19 @@ int main(int argc, char **argv) {
 
     // sendto: ACK back to the client
     gettimeofday(&tp, NULL);
-    VLOG(DEBUG, "%lu, %d, %d", tp.tv_sec, recvpkt->hdr.data_size,
-         recvpkt->hdr.seqno);
+    VLOG(DEBUG, "Time: %lu, Data Size: %d, Seqno: %d", tp.tv_sec,
+         recvpkt->hdr.data_size, recvpkt->hdr.seqno);
 
     // send file pointer to beginning of file and write data
-    fseek(fp, recvpkt->hdr.seqno, SEEK_SET);
-    fwrite(recvpkt->data, 1, recvpkt->hdr.data_size, fp);
+    if (recvpkt->hdr.seqno == expected_seqno) {
+      fseek(fp, recvpkt->hdr.seqno, SEEK_SET);
+      fwrite(recvpkt->data, 1, recvpkt->hdr.data_size, fp);
+      expected_seqno = recvpkt->hdr.seqno + recvpkt->hdr.data_size;
+    }
 
     // ACK recieved packet
     sndpkt = make_packet(0);
-    sndpkt->hdr.ackno = recvpkt->hdr.seqno + recvpkt->hdr.data_size;
+    sndpkt->hdr.ackno = expected_seqno;
     sndpkt->hdr.ctr_flags = ACK;
     if (sendto(sockfd, sndpkt, TCP_HDR_SIZE, 0, (struct sockaddr *)&clientaddr,
                clientlen) < 0) {
