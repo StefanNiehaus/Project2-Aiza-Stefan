@@ -57,11 +57,13 @@ int remove_old_pkts(int last_byte_acked) {
   int packets_removed = 0;
   size_t i;
   for (i = 0; i < MAX_PACKETS; i++) {
-    if (sndpkts[i] && sndpkts[i]->hdr.ackno <= last_byte_acked) {
-      // VLOG(DEBUG, "Removing packet: %d at index %d", sndpkts[i]->hdr.seqno, i);
-      free(sndpkts[i]);  // TODO: double free causes core dump when final packet is sent
-      sndpkts[i] = NULL;
-      packets_removed++;
+    if (sndpkts[i] && sndpkts[i]->hdr.seqno < last_byte_acked) {
+      if (sndpkts[i]->hdr.data_size) {
+        VLOG(DEBUG, "Removing packet: %d at index %zu", sndpkts[i]->hdr.seqno, i);
+        free(sndpkts[i]);  
+        packets_removed++;
+        sndpkts[i] = NULL;
+      } // TODO: easy workaround to avoid double free that causes core dump when final packet is sent
     }
   }
   reorder_sndpkts();
@@ -159,9 +161,8 @@ int main(int argc, char **argv) {
       if (len <= 0) {
         VLOG(INFO, "End Of File has been reached");
         sndpkts[num_pkts_sent] = make_packet(0);
-        sendto(sockfd, sndpkts[num_pkts_sent], TCP_HDR_SIZE, 0,
-               (const struct sockaddr *)&serveraddr, serverlen);
         done = 1;
+        num_pkts_sent++;
         break;
       }
 
@@ -209,14 +210,19 @@ int main(int argc, char **argv) {
     if (recvpkt->hdr.ackno > last_byte_acked) {
       last_byte_acked = recvpkt->hdr.ackno;
       stop_timer();
-      if (done && num_pkts_sent == 1) {
-        exit(EXIT_SUCCESS);
-      }  // TODO: workaround to double free (see line 56)
+      start_timer();
       printf("%s\n", "REMOVING OLD PACKETS");
       int packets_removed = remove_old_pkts(last_byte_acked);
       num_pkts_sent -= packets_removed;
       if (done) {
         start_timer();
+        if (num_pkts_sent == 1) {
+        	if (sendto(sockfd, sndpkts[0], TCP_HDR_SIZE + get_data_size(sndpkts[0]), 0,
+               (const struct sockaddr *)&serveraddr, serverlen) < 0) {
+              error("sendto");
+            }
+          exit(EXIT_SUCCESS);
+      	}  // TODO: workaround to double free (see line 56)
       }
     }
   }
