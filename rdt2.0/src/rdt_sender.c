@@ -33,7 +33,8 @@ sigset_t sigmask;
 
 void reorder_sndpkts() {
   size_t first_not_null_i = 0;
-  for (size_t i = 0; i < MAX_PACKETS; i++) {
+  size_t i;
+  for (i = 0; i < MAX_PACKETS; i++) {
     if (sndpkts[i]) {
       first_not_null_i = i;
       // VLOG(DEBUG, "Start re-order from index: %d", first_not_null_i);
@@ -41,7 +42,8 @@ void reorder_sndpkts() {
     }
   }
 
-  for (size_t base = 0; base < MAX_PACKETS; base++) {
+  size_t base;
+  for (base = 0; base < MAX_PACKETS; base++) {
     if (sndpkts[first_not_null_i] == NULL) {
       return;
     }
@@ -53,7 +55,8 @@ void reorder_sndpkts() {
 
 int remove_old_pkts(int last_byte_acked) {
   int packets_removed = 0;
-  for (size_t i = 0; i < MAX_PACKETS; i++) {
+  size_t i;
+  for (i = 0; i < MAX_PACKETS; i++) {
     if (sndpkts[i] && sndpkts[i]->hdr.ackno <= last_byte_acked) {
       // VLOG(DEBUG, "Removing packet: %d at index %d", sndpkts[i]->hdr.seqno, i);
       free(sndpkts[i]);  // TODO: double free causes core dump when final packet is sent
