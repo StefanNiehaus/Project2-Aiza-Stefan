@@ -20,13 +20,14 @@ The project is sub-divided into two tasks.
 
 Task 1: Simplified TCP sender/receiver
 ---
-- [ ] **Pipeline Sender** Extending the sender to send 10 packets.
 
-- [ ] **Handling ACKs** Properly sending and handling acknowledgments.
+- [x] **Pipeline Sender** Extending the sender to send 10 packets.
 
-- [ ] **Retransmission** Retransmissions of lost packets.
+- [x] **Handling ACKs** Properly sending and handling acknowledgments.
 
-- [ ] **Error Handling** Properly receiving the exact file on the receiver with no errors.
+- [x] **Retransmission** Retransmissions of lost packets.
+
+- [x] **Error Handling** Properly receiving the exact file on the receiver with no errors.
 
 
 Task 2: Congestion Control

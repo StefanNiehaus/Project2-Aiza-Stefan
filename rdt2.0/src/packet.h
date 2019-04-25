@@ -1,29 +1,29 @@
 /*
- * Nabil Rahiman
- * NYU Abudhabi
- * email: nr83@nyu.edu
+ * Aiza Usman and Stefan Niehaus
+ * NYU Abu Dhabi
  */
 enum packet_type {
-    DATA,
-    ACK,
+  DATA,
+  ACK,
 };
 
 typedef struct {
-    int seqno;
-    int ackno;
-    int ctr_flags;
-    int data_size;
-}tcp_header;
+  int seqno;
+  int ackno;
+  int ctr_flags;
+  int data_size;
+} tcp_header;
 
-#define MSS_SIZE    1500
-#define UDP_HDR_SIZE    8
-#define IP_HDR_SIZE    20
-#define TCP_HDR_SIZE    sizeof(tcp_header)
-#define DATA_SIZE   (MSS_SIZE - TCP_HDR_SIZE - UDP_HDR_SIZE - IP_HDR_SIZE)
+#define MSS_SIZE 1500
+#define UDP_HDR_SIZE 8
+#define IP_HDR_SIZE 20
+#define TCP_HDR_SIZE sizeof(tcp_header)
+#define DATA_SIZE (MSS_SIZE - TCP_HDR_SIZE - UDP_HDR_SIZE - IP_HDR_SIZE)
+
 typedef struct {
-    tcp_header  hdr;
-    char    data[0];
-}tcp_packet;
+  tcp_header hdr;
+  char data[0];
+} tcp_packet;
 
-tcp_packet* make_packet(int seq);
+tcp_packet *make_packet(int seq);
 int get_data_size(tcp_packet *pkt);
