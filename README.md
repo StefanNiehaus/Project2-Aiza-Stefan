@@ -20,6 +20,7 @@ The project is sub-divided into two tasks.
 
 Task 1: Simplified TCP sender/receiver
 ---
+
 - [x] **Pipeline Sender** Extending the sender to send 10 packets.
 
 - [x] **Handling ACKs** Properly sending and handling acknowledgments.
@@ -32,8 +33,8 @@ Task 1: Simplified TCP sender/receiver
 Task 2: Congestion Control
 ---
 
-- [] **Slow start** Implementing TCP slow start.
+- [ ] **Slow start** Implementing TCP slow start.
 
-- [] **Congestion Avoidance** 
+- [ ] **Congestion Avoidance** 
 
-- [] **Fast Retransmit** 
+- [ ] **Fast Retransmit** 
