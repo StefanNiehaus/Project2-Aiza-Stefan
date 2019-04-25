@@ -210,10 +210,10 @@ int main(int argc, char **argv) {
     if (recvpkt->hdr.ackno > last_byte_acked) {
       last_byte_acked = recvpkt->hdr.ackno;
       stop_timer();
-      start_timer();
       printf("%s\n", "REMOVING OLD PACKETS");
       int packets_removed = remove_old_pkts(last_byte_acked);
       num_pkts_sent -= packets_removed;
+      start_timer();
       if (done) {
         start_timer();
         if (num_pkts_sent == 1) {
