@@ -9,8 +9,17 @@
 
 int verbose = ALL;
 
+// creates empty node to add to list list
+// that serves as buffer of sent packets
+node create_node(tcp_packet *pkt) {
+  node temp = (node)malloc(sizeof(struct linked_list));
+  temp->pkt = pkt;
+  temp->next = NULL;
+  return temp;
+}
+
 // error - wrapper for perror
 void error(char *msg) {
   perror(msg);
-  exit(1);
+  exit(EXIT_FAILURE);
 }

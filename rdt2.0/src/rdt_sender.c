@@ -16,17 +16,8 @@
 #include <unistd.h>
 
 #include "common.h"
-#include "packet.h"
 
 #define RETRY 400  // timeout in milliseconds
-#define MAX_PACKETS 100000
-
-struct linked_list {
-  tcp_packet *pkt;
-  struct linked_list *next;
-};
-
-typedef struct linked_list *node;
 
 int window_size = 10;  // CWND
 int sockfd;            // UDP socket
@@ -34,17 +25,6 @@ struct sockaddr_in serveraddr;
 int serverlen;  // size of serveraddr
 node sndpkts_head = NULL;
 node sndpkts_tail = NULL;
-
-// tcp_packet *sndpkts[MAX_PACKETS] = {};  // buffer of sent packets
-
-// creates empty node to add to list list
-// that serves as buffer of sent packets
-node create_node(tcp_packet *pkt) {
-  node temp = (node)malloc(sizeof(struct linked_list));
-  temp->pkt = pkt;
-  temp->next = NULL;
-  return temp;
-}
 
 // timers for selective repeat
 struct itimerval timer;
@@ -59,6 +39,7 @@ int remove_old_pkts(int last_byte_acked) {
         cur->pkt->hdr.data_size) {
       VLOG(DEBUG, "Removing packet: %d", cur->pkt->hdr.seqno);
       next_node = cur->next;
+      free(cur->pkt);
       free(cur);
       packets_removed++;
       cur = next_node;

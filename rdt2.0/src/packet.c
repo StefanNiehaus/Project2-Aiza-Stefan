@@ -13,6 +13,7 @@ tcp_packet *make_packet(int len) {
   pkt = malloc(TCP_HDR_SIZE + len);
 
   *pkt = zero_packet;
+  pkt->hdr.data_size = len;
   return pkt;
 }
 
