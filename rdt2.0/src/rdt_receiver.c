@@ -15,20 +15,83 @@
 #include <unistd.h>
 
 #include "common.h"
-#include "packet.h"
 
-tcp_packet *recvpkt;
-tcp_packet *sndpkt;
+node cache_head = NULL;
+int expected_seqno = 0;
+
+void add_to_cache(tcp_packet *orig_pkt) {
+  // deep copy of packet
+  tcp_packet *pkt = make_packet(orig_pkt->hdr.data_size);
+  memcpy(pkt->data, orig_pkt->data, orig_pkt->hdr.data_size);
+  pkt->hdr.data_size = orig_pkt->hdr.data_size;
+  pkt->hdr.seqno = orig_pkt->hdr.seqno;
+  pkt->hdr.ackno = orig_pkt->hdr.ackno;
+  pkt->hdr.ctr_flags = orig_pkt->hdr.ctr_flags;
+
+  // create node using copied pkt
+  node new_node = create_node(pkt);
+
+  // debugging lines
+  VLOG(DEBUG, "Adding node %d to cache", new_node->pkt->hdr.seqno);
+  if (cache_head) {
+    VLOG(DEBUG, "Cache head: %d", cache_head->pkt->hdr.seqno);
+  } else {
+    VLOG(DEBUG, "Cache head is NULL");
+  }
+
+  // logic to add packets
+  if (!cache_head) {
+    VLOG(DEBUG, "Creating head with seqno: %d ", new_node->pkt->hdr.seqno);
+    cache_head = new_node;
+    return;
+  } else if (new_node->pkt->hdr.seqno < cache_head->pkt->hdr.seqno) {
+    VLOG(DEBUG, "Updating head with seqno: %d", new_node->pkt->hdr.seqno);
+    new_node->next = cache_head;
+    cache_head = new_node;
+    return;
+  }
+  node cur_node = cache_head;
+  while (cur_node->next &&
+         cur_node->next->pkt->hdr.seqno < new_node->pkt->hdr.seqno) {
+    cur_node = cur_node->next;
+    if (cur_node->pkt->hdr.seqno == new_node->pkt->hdr.seqno) {
+      break;
+    }
+  }
+  node next_node = cur_node->next;
+  cur_node->next = new_node;
+  new_node->next = next_node;
+  VLOG(DEBUG, "Finished updating cache");
+}
+
+node write_from_cache(FILE *fp) {
+  node cur_node = cache_head;
+  VLOG(DEBUG, "Writing new packets to file starting at: %d",
+       cur_node->pkt->hdr.seqno);
+  while (cur_node && cur_node->pkt->hdr.seqno == expected_seqno) {
+    VLOG(DEBUG, "Writing packet: %d", cur_node->pkt->hdr.seqno);
+    fseek(fp, cur_node->pkt->hdr.seqno, SEEK_SET);
+    fwrite(cur_node->pkt->data, 1, cur_node->pkt->hdr.data_size, fp);
+    expected_seqno = cur_node->pkt->hdr.seqno + cur_node->pkt->hdr.data_size;
+    node next_node = cur_node->next;
+    free(cur_node);
+    cur_node = next_node;
+  }
+  cache_head = cur_node;
+  VLOG(DEBUG, "Finished writing most recent packets to file");
+  return cache_head;
+}
 
 int main(int argc, char **argv) {
+  tcp_packet *recvpkt;
+  tcp_packet *sndpkt;             // pkt for ACK
   int sockfd;                     // socket
   int portno;                     // port to listen on
   struct sockaddr_in serveraddr;  // server addr
   struct sockaddr_in clientaddr;  // client addr
-  FILE *fp;
-  char buffer[MSS_SIZE];
+  FILE *fp;                       // file pointer to write to
+  char buffer[MSS_SIZE];          // buffer for incoming data stream
   struct timeval tp;
-  int expected_seqno = 0;
 
   // check command line arguments
   if (argc != 3) {
@@ -90,12 +153,15 @@ int main(int argc, char **argv) {
     gettimeofday(&tp, NULL);
     VLOG(DEBUG, "Time: %lu, Data Size: %d, Seqno: %d", tp.tv_sec,
          recvpkt->hdr.data_size, recvpkt->hdr.seqno);
+    VLOG(DEBUG, "Recieved packet: %d - Expected byte: %d\n", recvpkt->hdr.seqno,
+         expected_seqno);
 
     // send file pointer to beginning of file and write data
-    if (recvpkt->hdr.seqno == expected_seqno) {
-      fseek(fp, recvpkt->hdr.seqno, SEEK_SET);
-      fwrite(recvpkt->data, 1, recvpkt->hdr.data_size, fp);
-      expected_seqno = recvpkt->hdr.seqno + recvpkt->hdr.data_size;
+    if (recvpkt->hdr.seqno > expected_seqno) {
+      add_to_cache(recvpkt);
+    } else if (recvpkt->hdr.seqno == expected_seqno) {
+      add_to_cache(recvpkt);
+      write_from_cache(fp);
     }
 
     // ACK recieved packet
@@ -108,5 +174,5 @@ int main(int argc, char **argv) {
     }
   }
 
-  return 0;
+  return EXIT_SUCCESS;
 }

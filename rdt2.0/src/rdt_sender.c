@@ -16,57 +16,41 @@
 #include <unistd.h>
 
 #include "common.h"
-#include "packet.h"
 
 #define RETRY 400  // timeout in milliseconds
-#define MAX_PACKETS 100000
 
-int window_size = 10;
-
-int sockfd, serverlen;
+int window_size = 10;  // CWND
+int sockfd;            // UDP socket
 struct sockaddr_in serveraddr;
-tcp_packet *sndpkts[MAX_PACKETS] = {};
+int serverlen;  // size of serveraddr
+node sndpkts_head = NULL;
+node sndpkts_tail = NULL;
 
 // timers for selective repeat
 struct itimerval timer;
 sigset_t sigmask;
 
-void reorder_sndpkts() {
-  size_t first_not_null_i = 0;
-  size_t i;
-  for (i = 0; i < MAX_PACKETS; i++) {
-    if (sndpkts[i]) {
-      first_not_null_i = i;
-      // VLOG(DEBUG, "Start re-order from index: %d", first_not_null_i);
+int remove_old_pkts(int last_byte_acked) {
+  int packets_removed = 0;
+  node cur = sndpkts_head;
+  node next_node;
+  while (1) {
+    if (cur && cur->pkt->hdr.seqno < last_byte_acked &&
+        cur->pkt->hdr.data_size) {
+      VLOG(DEBUG, "Removing packet: %d", cur->pkt->hdr.seqno);
+      next_node = cur->next;
+      free(cur->pkt);
+      free(cur);
+      packets_removed++;
+      cur = next_node;
+    } else {
       break;
     }
   }
-
-  size_t base;
-  for (base = 0; base < MAX_PACKETS; base++) {
-    if (sndpkts[first_not_null_i] == NULL) {
-      return;
-    }
-    // VLOG(DEBUG, "Move %d to index %d", sndpkts[first_not_null_i]->hdr.seqno,
-    // base);
-    sndpkts[base] = sndpkts[first_not_null_i++];
+  sndpkts_head = cur;
+  if (!sndpkts_head) {
+    sndpkts_tail = sndpkts_head;
   }
-}
-
-int remove_old_pkts(int last_byte_acked) {
-  int packets_removed = 0;
-  size_t i;
-  for (i = 0; i < MAX_PACKETS; i++) {
-    if (sndpkts[i] && sndpkts[i]->hdr.seqno < last_byte_acked) {
-      if (sndpkts[i]->hdr.data_size) {
-        VLOG(DEBUG, "Removing packet: %d at index %zu", sndpkts[i]->hdr.seqno, i);
-        free(sndpkts[i]);  
-        packets_removed++;
-        sndpkts[i] = NULL;
-      } // TODO: easy workaround to avoid double free that causes core dump when final packet is sent
-    }
-  }
-  reorder_sndpkts();
   return packets_removed;
 }
 
@@ -75,7 +59,8 @@ void resend_packets(int sig) {
     // Resend all packets range between
     // sendBase and nextSeqNum
     VLOG(INFO, "Timout happend");
-    if (sendto(sockfd, sndpkts[0], TCP_HDR_SIZE + get_data_size(sndpkts[0]), 0,
+    if (sendto(sockfd, sndpkts_head->pkt,
+               TCP_HDR_SIZE + get_data_size(sndpkts_head->pkt), 0,
                (const struct sockaddr *)&serveraddr, serverlen) < 0) {
       error("sendto");
     }
@@ -160,7 +145,8 @@ int main(int argc, char **argv) {
       // check for EOF
       if (len <= 0) {
         VLOG(INFO, "End Of File has been reached");
-        sndpkts[num_pkts_sent] = make_packet(0);
+        sndpkts_tail->next = create_node(make_packet(0));  // create empty pkt
+        sndpkts_tail = sndpkts_tail->next;
         done = 1;
         num_pkts_sent++;
         break;
@@ -172,19 +158,27 @@ int main(int argc, char **argv) {
 
       // create packet
       VLOG(INFO, "Creating packet %d", send_base);
-      sndpkts[num_pkts_sent] = make_packet(len);
-      memcpy(sndpkts[num_pkts_sent]->data, buffer, len);
-      sndpkts[num_pkts_sent]->hdr.data_size = len;
-      sndpkts[num_pkts_sent]->hdr.seqno = send_base;
-      sndpkts[num_pkts_sent]->hdr.ackno = send_base + len;
-      sndpkts[num_pkts_sent]->hdr.ctr_flags = DATA;
+      tcp_packet *pkt = make_packet(len);
+      memcpy(pkt->data, buffer, len);
+      pkt->hdr.data_size = len;
+      pkt->hdr.seqno = send_base;
+      pkt->hdr.ackno = send_base + len;
+      pkt->hdr.ctr_flags = DATA;
+      if (!sndpkts_head) {
+        sndpkts_head = create_node(pkt);
+        sndpkts_tail = sndpkts_head;
+      } else {
+        // if we have a head, we have a tail!
+        sndpkts_tail->next = create_node(pkt);
+        sndpkts_tail = sndpkts_tail->next;
+      }
 
       VLOG(INFO, "Sending bytes starting at %d to %s", send_base,
            inet_ntoa(serveraddr.sin_addr));
 
       // random initialization of port for first `sendto` call
-      if (sendto(sockfd, sndpkts[num_pkts_sent],
-                 TCP_HDR_SIZE + get_data_size(sndpkts[num_pkts_sent]), 0,
+      if (sendto(sockfd, sndpkts_tail->pkt,
+                 TCP_HDR_SIZE + get_data_size(sndpkts_tail->pkt), 0,
                  (const struct sockaddr *)&serveraddr, serverlen) < 0) {
         error("sendto");
       }
@@ -215,17 +209,17 @@ int main(int argc, char **argv) {
       num_pkts_sent -= packets_removed;
       start_timer();
       if (done) {
-        start_timer();
         if (num_pkts_sent == 1) {
-        	if (sendto(sockfd, sndpkts[0], TCP_HDR_SIZE + get_data_size(sndpkts[0]), 0,
-               (const struct sockaddr *)&serveraddr, serverlen) < 0) {
-              error("sendto");
-            }
+          if (sendto(sockfd, sndpkts_head->pkt,
+                     TCP_HDR_SIZE + get_data_size(sndpkts_head->pkt), 0,
+                     (const struct sockaddr *)&serveraddr, serverlen) < 0) {
+            error("sendto");
+          }
           exit(EXIT_SUCCESS);
-      	}  // TODO: workaround to double free (see line 56)
+        }  // TODO: workaround to double free (see line 56)
       }
     }
   }
 
-  return 0;
+  return EXIT_SUCCESS;
 }
