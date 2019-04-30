@@ -33,7 +33,7 @@ Task 1: Simplified TCP sender/receiver
 Task 2: Congestion Control
 ---
 
-- [ ] **Receiver Buffer** Implementing TCP slow start.
+- [x] **Receiver Buffer**
 
 - [ ] **Slow start** Implementing TCP slow start.
 
