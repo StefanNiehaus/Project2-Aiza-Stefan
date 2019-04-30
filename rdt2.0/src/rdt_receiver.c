@@ -83,6 +83,7 @@ int main(int argc, char **argv) {
     // check for end of file
     if (recvpkt->hdr.data_size == 0) {
       fclose(fp);
+
       break;
     }
 

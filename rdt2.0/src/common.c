@@ -2,9 +2,10 @@
  * Aiza Usman and Stefan Niehaus
  * NYU Abu Dhabi
  */
-#include "common.h"
 #include <stdio.h>
 #include <stdlib.h>
+
+#include "common.h"
 
 int verbose = ALL;
 
