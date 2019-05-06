@@ -19,12 +19,14 @@
 
 #define RETRY 400  // timeout in milliseconds
 
-int window_size = 10;  // CWND
-int sockfd;            // UDP socket
+int window_size = 1;  // CWND
+int sockfd;           // UDP socket
 struct sockaddr_in serveraddr;
 int serverlen;  // size of serveraddr
 node sndpkts_head = NULL;
 node sndpkts_tail = NULL;
+int ssthresh = 64;
+int slow_start = 1;
 
 // timers for selective repeat
 struct itimerval timer;
@@ -56,9 +58,10 @@ int remove_old_pkts(int last_byte_acked) {
 
 void resend_packets(int sig) {
   if (sig == SIGALRM) {
-    // Resend all packets range between
-    // sendBase and nextSeqNum
     VLOG(INFO, "Timout happend");
+    ssthresh = MAX(window_size / 2, 2);
+    window_size = 1;
+    slow_start = 1;
     if (sendto(sockfd, sndpkts_head->pkt,
                TCP_HDR_SIZE + get_data_size(sndpkts_head->pkt), 0,
                (const struct sockaddr *)&serveraddr, serverlen) < 0) {
@@ -68,6 +71,7 @@ void resend_packets(int sig) {
 }
 
 void start_timer() {
+  VLOG(INFO, "Start timer");
   sigprocmask(SIG_UNBLOCK, &sigmask, NULL);
   setitimer(ITIMER_REAL, &timer, NULL);
 }
@@ -83,7 +87,6 @@ void init_timer(int delay, void (*sig_handler)(int)) {
   timer.it_interval.tv_usec = (delay % 1000) * 1000;
   timer.it_value.tv_sec = delay / 1000;  // sets an initial value
   timer.it_value.tv_usec = (delay % 1000) * 1000;
-
 
   sigemptyset(&sigmask);
   sigaddset(&sigmask, SIGALRM);
@@ -135,6 +138,7 @@ int main(int argc, char **argv) {
   int num_pkts_sent = 0;
   int done = 0;
   int timesduplicate = 0;
+  float increment_window = 0;
 
   while (1) {
     VLOG(DEBUG, "Packets in flight: %d - Window Size: %d", num_pkts_sent,
@@ -204,11 +208,20 @@ int main(int argc, char **argv) {
     assert(get_data_size(recvpkt) <= DATA_SIZE);
 
     // check triple duplicate ACKs
-    if (timesduplicate == 3){
-      resend_packets(SIGALRM);
+    if (timesduplicate >= 3) {
+      VLOG(INFO, "Triple ACK");
+      VLOG(INFO, "Sending packet %d", sndpkts_head->pkt->hdr.ackno);
+      if (sendto(sockfd, sndpkts_head->pkt,
+                 TCP_HDR_SIZE + get_data_size(sndpkts_head->pkt), 0,
+                 (const struct sockaddr *)&serveraddr, serverlen) < 0) {
+        error("sendto");
+      }
       timesduplicate = 0;
       window_size = 1;
+      ssthresh = MAX(window_size / 2, 2);
+      slow_start = 1;
     }
+
     // check cumulative ACK
     if (recvpkt->hdr.ackno > last_byte_acked) {
       timesduplicate = 0;
@@ -217,7 +230,25 @@ int main(int argc, char **argv) {
       printf("%s\n", "REMOVING OLD PACKETS");
       int packets_removed = remove_old_pkts(last_byte_acked);
       num_pkts_sent -= packets_removed;
+
+      // adjust window size
+      if (slow_start) {
+        window_size += packets_removed;
+      } else {
+        increment_window += (1.0 / window_size) * (packets_removed);
+        if (increment_window > 1) {
+          ++window_size;
+          increment_window -= 1.0;
+        }
+      }
+
+      if (window_size >= ssthresh) {
+        slow_start = 0;
+      }
+
       start_timer();
+
+      // send final packet
       if (done) {
         if (num_pkts_sent == 1) {
           if (sendto(sockfd, sndpkts_head->pkt,
@@ -228,10 +259,9 @@ int main(int argc, char **argv) {
           exit(EXIT_SUCCESS);
         }  // TODO: workaround to double free (see line 56)
       }
-    } else if (recvpkt->hdr.ackno == last_byte_acked) {
-      timesduplicate++; 
+    } else if (recvpkt->hdr.ackno == last_byte_acked) {  // increment dup ACK
+      ++timesduplicate;
     }
-
   }
 
   return EXIT_SUCCESS;
