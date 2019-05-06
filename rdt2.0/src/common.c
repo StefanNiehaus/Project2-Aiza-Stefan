@@ -9,7 +9,7 @@
 
 int verbose = ALL;
 
-// creates empty node to add to list list
+// creates empty node to add to linked list
 // that serves as buffer of sent packets
 node create_node(tcp_packet *pkt) {
   node temp = (node)malloc(sizeof(struct linked_list));

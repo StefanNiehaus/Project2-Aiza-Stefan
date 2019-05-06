@@ -84,6 +84,7 @@ void init_timer(int delay, void (*sig_handler)(int)) {
   timer.it_value.tv_sec = delay / 1000;  // sets an initial value
   timer.it_value.tv_usec = (delay % 1000) * 1000;
 
+
   sigemptyset(&sigmask);
   sigaddset(&sigmask, SIGALRM);
 }
@@ -133,6 +134,8 @@ int main(int argc, char **argv) {
   int last_byte_acked = 0;
   int num_pkts_sent = 0;
   int done = 0;
+  int timesduplicate = 0;
+
   while (1) {
     VLOG(DEBUG, "Packets in flight: %d - Window Size: %d", num_pkts_sent,
          window_size);
@@ -200,8 +203,15 @@ int main(int argc, char **argv) {
          last_byte_acked);
     assert(get_data_size(recvpkt) <= DATA_SIZE);
 
+    // check triple duplicate ACKs
+    if (timesduplicate == 3){
+      resend_packets(SIGALRM);
+      timesduplicate = 0;
+      window_size = 1;
+    }
     // check cumulative ACK
     if (recvpkt->hdr.ackno > last_byte_acked) {
+      timesduplicate = 0;
       last_byte_acked = recvpkt->hdr.ackno;
       stop_timer();
       printf("%s\n", "REMOVING OLD PACKETS");
@@ -218,7 +228,10 @@ int main(int argc, char **argv) {
           exit(EXIT_SUCCESS);
         }  // TODO: workaround to double free (see line 56)
       }
+    } else if (recvpkt->hdr.ackno == last_byte_acked) {
+      timesduplicate++; 
     }
+
   }
 
   return EXIT_SUCCESS;
