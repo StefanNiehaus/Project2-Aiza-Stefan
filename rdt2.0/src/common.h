@@ -25,6 +25,8 @@ typedef struct linked_list *node;
 
 node create_node(tcp_packet *pkt);
 
+#define MAX(x, y) (((x) > (y)) ? (x) : (y))
+
 #define VLOG(level, ...)            \
   if (level & verbose) {            \
     fprintf(stderr, ##__VA_ARGS__); \
