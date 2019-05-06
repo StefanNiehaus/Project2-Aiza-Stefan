@@ -97,6 +97,7 @@ int main(int argc, char **argv) {
   char *hostname;  // address of reciever
   char buffer[DATA_SIZE];
   FILE *fp;
+  FILE *fp_record;
 
   // check command line arguments
   if (argc != 4) {
@@ -112,6 +113,11 @@ int main(int argc, char **argv) {
     error(argv[3]);
   }
 
+  // open file to record CWND size
+  fp_record = fopen("CWND.csv", "w");
+  if (fp_record == NULL) {
+    error("Failed to open CWND.csv");
+  }
   // socket: create the socket
   sockfd = socket(AF_INET, SOCK_DGRAM, 0);
   if (sockfd < 0) error("ERROR opening socket");
@@ -141,6 +147,9 @@ int main(int argc, char **argv) {
   float increment_window = 0;
 
   while (1) {
+    // Record window size
+    fprintf(fp_record, "%d\n", window_size);
+
     VLOG(DEBUG, "Packets in flight: %d - Window Size: %d", num_pkts_sent,
          window_size);
 
