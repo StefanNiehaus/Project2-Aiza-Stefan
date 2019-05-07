@@ -32,6 +32,15 @@ int slow_start = 1;
 struct itimerval timer;
 sigset_t sigmask;
 
+void record_cwnd(FILE *fp) {
+  // Get time of day
+  struct timeval tp;
+  gettimeofday(&tp, NULL);
+  
+  // output to CSV
+  fprintf(fp, "%lu.%06lu,%d\n", tp.tv_sec, tp.tv_usec, window_size);
+}
+
 int remove_old_pkts(int last_byte_acked) {
   int packets_removed = 0;
   node cur = sndpkts_head;
@@ -71,7 +80,7 @@ void resend_packets(int sig) {
 }
 
 void start_timer() {
-  VLOG(INFO, "Start timer");
+  VLOG(DEBUG, "Start timer");
   sigprocmask(SIG_UNBLOCK, &sigmask, NULL);
   setitimer(ITIMER_REAL, &timer, NULL);
 }
@@ -97,6 +106,7 @@ int main(int argc, char **argv) {
   char *hostname;  // address of reciever
   char buffer[DATA_SIZE];
   FILE *fp;
+  FILE *fp_record;
 
   // check command line arguments
   if (argc != 4) {
@@ -112,6 +122,12 @@ int main(int argc, char **argv) {
     error(argv[3]);
   }
 
+  // open file to record CWND size
+  fp_record = fopen("CWND.csv", "w");
+  if (fp_record == NULL) {
+    error("Failed to open CWND.csv");
+  }
+  
   // socket: create the socket
   sockfd = socket(AF_INET, SOCK_DGRAM, 0);
   if (sockfd < 0) error("ERROR opening socket");
@@ -141,6 +157,9 @@ int main(int argc, char **argv) {
   float increment_window = 0;
 
   while (1) {
+    // Record window size
+    record_cwnd(fp_record);
+
     VLOG(DEBUG, "Packets in flight: %d - Window Size: %d", num_pkts_sent,
          window_size);
 
@@ -164,7 +183,7 @@ int main(int argc, char **argv) {
       next_seqno = send_base + len;
 
       // create packet
-      VLOG(INFO, "Creating packet %d", send_base);
+      VLOG(DEBUG, "Creating packet %d", send_base);
       tcp_packet *pkt = make_packet(len);
       memcpy(pkt->data, buffer, len);
       pkt->hdr.data_size = len;
@@ -180,7 +199,7 @@ int main(int argc, char **argv) {
         sndpkts_tail = sndpkts_tail->next;
       }
 
-      VLOG(INFO, "Sending bytes starting at %d to %s", send_base,
+      VLOG(INFO, "Sending packet %d to %s", send_base,
            inet_ntoa(serveraddr.sin_addr));
 
       // random initialization of port for first `sendto` call
@@ -210,7 +229,7 @@ int main(int argc, char **argv) {
     // check triple duplicate ACKs
     if (timesduplicate >= 3) {
       VLOG(INFO, "Triple ACK");
-      VLOG(INFO, "Sending packet %d", sndpkts_head->pkt->hdr.ackno);
+      VLOG(INFO, "Re-sending packet %d", sndpkts_head->pkt->hdr.ackno);
       if (sendto(sockfd, sndpkts_head->pkt,
                  TCP_HDR_SIZE + get_data_size(sndpkts_head->pkt), 0,
                  (const struct sockaddr *)&serveraddr, serverlen) < 0) {
@@ -227,15 +246,14 @@ int main(int argc, char **argv) {
       timesduplicate = 0;
       last_byte_acked = recvpkt->hdr.ackno;
       stop_timer();
-      printf("%s\n", "REMOVING OLD PACKETS");
       int packets_removed = remove_old_pkts(last_byte_acked);
       num_pkts_sent -= packets_removed;
 
       // adjust window size
       if (slow_start) {
-        window_size += packets_removed;
+        window_size += 1;
       } else {
-        increment_window += (1.0 / window_size) * (packets_removed);
+        increment_window += (1.0 / window_size);
         if (increment_window > 1) {
           ++window_size;
           increment_window -= 1.0;
@@ -257,7 +275,7 @@ int main(int argc, char **argv) {
             error("sendto");
           }
           exit(EXIT_SUCCESS);
-        }  // TODO: workaround to double free (see line 56)
+        }  
       }
     } else if (recvpkt->hdr.ackno == last_byte_acked) {  // increment dup ACK
       ++timesduplicate;

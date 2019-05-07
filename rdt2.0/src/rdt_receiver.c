@@ -31,21 +31,11 @@ void add_to_cache(tcp_packet *orig_pkt) {
   // create node using copied pkt
   node new_node = create_node(pkt);
 
-  // debugging lines
-  VLOG(DEBUG, "Adding node %d to cache", new_node->pkt->hdr.seqno);
-  if (cache_head) {
-    VLOG(DEBUG, "Cache head: %d", cache_head->pkt->hdr.seqno);
-  } else {
-    VLOG(DEBUG, "Cache head is NULL");
-  }
-
   // logic to add packets
   if (!cache_head) {
-    VLOG(DEBUG, "Creating head with seqno: %d ", new_node->pkt->hdr.seqno);
     cache_head = new_node;
     return;
   } else if (new_node->pkt->hdr.seqno < cache_head->pkt->hdr.seqno) {
-    VLOG(DEBUG, "Updating head with seqno: %d", new_node->pkt->hdr.seqno);
     new_node->next = cache_head;
     cache_head = new_node;
     return;
@@ -61,15 +51,12 @@ void add_to_cache(tcp_packet *orig_pkt) {
   node next_node = cur_node->next;
   cur_node->next = new_node;
   new_node->next = next_node;
-  VLOG(DEBUG, "Finished updating cache");
 }
 
 node write_from_cache(FILE *fp) {
   node cur_node = cache_head;
-  VLOG(DEBUG, "Writing new packets to file starting at: %d",
-       cur_node->pkt->hdr.seqno);
   while (cur_node && cur_node->pkt->hdr.seqno == expected_seqno) {
-    VLOG(DEBUG, "Writing packet: %d", cur_node->pkt->hdr.seqno);
+    // VLOG(DEBUG, "Writing packet: %d", cur_node->pkt->hdr.seqno);
     fseek(fp, cur_node->pkt->hdr.seqno, SEEK_SET);
     fwrite(cur_node->pkt->data, 1, cur_node->pkt->hdr.data_size, fp);
     expected_seqno = cur_node->pkt->hdr.seqno + cur_node->pkt->hdr.data_size;
@@ -78,7 +65,7 @@ node write_from_cache(FILE *fp) {
     cur_node = next_node;
   }
   cache_head = cur_node;
-  VLOG(DEBUG, "Finished writing most recent packets to file");
+  // VLOG(DEBUG, "Finished writing most recent packets to file");
   return cache_head;
 }
 
@@ -128,12 +115,11 @@ int main(int argc, char **argv) {
     error("ERROR on binding");
 
   // main loop: wait for a datagram, then echo it
-  VLOG(DEBUG, "epoch time, bytes received, sequence number");
+  VLOG(INFO, "epoch time, bytes received, sequence number");
 
   int clientlen = sizeof(clientaddr);  // byte size of client's address
   while (1) {
     // recvfrom: receive a UDP datagram from a client
-    // VLOG(DEBUG, "waiting from server \n");
     if (recvfrom(sockfd, buffer, MSS_SIZE, 0, (struct sockaddr *)&clientaddr,
                  (socklen_t *)&clientlen) < 0) {
       error("ERROR in recvfrom");
@@ -151,10 +137,8 @@ int main(int argc, char **argv) {
 
     // sendto: ACK back to the client
     gettimeofday(&tp, NULL);
-    VLOG(DEBUG, "Time: %lu, Data Size: %d, Seqno: %d", tp.tv_sec,
+    VLOG(INFO, "%lu.%06lu, %d, %d", tp.tv_sec, tp.tv_usec,
          recvpkt->hdr.data_size, recvpkt->hdr.seqno);
-    VLOG(DEBUG, "Recieved packet: %d - Expected byte: %d\n", recvpkt->hdr.seqno,
-         expected_seqno);
 
     // send file pointer to beginning of file and write data
     if (recvpkt->hdr.seqno > expected_seqno) {
