@@ -109,7 +109,7 @@ for line in traceDL:
     entry = line.strip().split(",")
     time_now = float(entry[0])
     time_elapsed = time_now - start_time
-    if time_elapsed < 0.1:
+    if time_elapsed <= 1.0:
         bytes += float(entry[1])
     else:
         timeDL.append(start_time - stime)

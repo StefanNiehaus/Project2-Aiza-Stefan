@@ -68,7 +68,9 @@ int remove_old_pkts(int last_byte_acked) {
 void resend_packets(int sig) {
   if (sig == SIGALRM) {
     VLOG(INFO, "Timout happend");
-    ssthresh = MAX(window_size / 2, 2);
+    if (window_size > 1) {
+      ssthresh = MAX(window_size / 2, 2);
+    }
     window_size = 1;
     slow_start = 1;
     if (sendto(sockfd, sndpkts_head->pkt,
@@ -160,8 +162,8 @@ int main(int argc, char **argv) {
     // Record window size
     record_cwnd(fp_record);
 
-    VLOG(DEBUG, "Packets in flight: %d - Window Size: %d", num_pkts_sent,
-         window_size);
+    VLOG(DEBUG, "Packets in flight: %d - Window Size: %d - SSthresh: %d", num_pkts_sent,
+         window_size, ssthresh);
 
     // Send packets within window size
     // keep all sent packets buffered in sndpkts array
@@ -236,8 +238,12 @@ int main(int argc, char **argv) {
         error("sendto");
       }
       timesduplicate = 0;
+
+      // avoids a single lost packet from causing ssthresh to become unreasonably low.
+      if (window_size > 1) {
+        ssthresh = MAX(window_size / 2, 2);
+      }
       window_size = 1;
-      ssthresh = MAX(window_size / 2, 2);
       slow_start = 1;
     }
 
