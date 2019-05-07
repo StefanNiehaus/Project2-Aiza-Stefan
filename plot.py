@@ -78,49 +78,6 @@ args = parser.parse_args()
 fig = plt.figure(figsize=(21,3), facecolor='w')
 ax = plt.gca()
 
-
-# plotting the trace file
-f1 = open (args.trace,"r")
-BW = []
-nextTime = 1000
-cnt = 0
-for line in f1:
-    if int(line.strip()) > nextTime:
-        BW.append(cnt*1492*8)
-        cnt = 0
-        nextTime+=1000
-    else:
-        cnt+=1
-f1.close()
-
-ax.fill_between(range(len(BW)), 0, list(map(scale,BW)),color='#D3D3D3')
-
-# plotting throughput
-throughputDL = []
-timeDL = []
-
-traceDL = open (args.dir+"/"+str(args.name)+'_receiver.csv', 'r')
-traceDL.readline()
-
-bytes = 0
-startTime = traceDL.readline().strip().split(",")[0]
-stime=float(startTime)
-
-for line in traceDL:
-    if (float(line.strip().split(",")[0]) - float(startTime)) <= 1.0:
-        bytes += float(line.strip().split(",")[1])
-    else:
-        throughputDL.append(bytes*8/1000000.0)
-        timeDL.append(float(startTime)-stime)
-        bytes = 0
-        startTime = line.split(",")[0]
-plt.plot(timeDL, throughputDL, lw=2, color='r')
-
-plt.ylabel("Throughput (Mbps)")
-plt.xlabel("Time (s)")
-plt.grid(True, which="both")
-plt.savefig(args.dir+'/throughput.pdf',dpi=1000,bbox_inches='tight')
-
 # plotting CWND
 CWNDDL = []
 timeDL = []

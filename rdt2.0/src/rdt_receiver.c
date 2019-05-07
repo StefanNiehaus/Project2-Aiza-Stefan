@@ -137,7 +137,7 @@ int main(int argc, char **argv) {
 
     // sendto: ACK back to the client
     gettimeofday(&tp, NULL);
-    VLOG(INFO, "%lu.%06lu, %d, %d", tp.tv_sec, tp.tv_usec
+    VLOG(INFO, "%lu.%06lu, %d, %d", tp.tv_sec, tp.tv_usec,
          recvpkt->hdr.data_size, recvpkt->hdr.seqno);
 
     // send file pointer to beginning of file and write data
