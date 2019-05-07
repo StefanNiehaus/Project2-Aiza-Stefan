@@ -35,12 +35,12 @@ Task 2: Congestion Control
 
 - [x] **Receiver Buffer**
 
-- [ ] **Slow start** Implementing TCP slow start.
+- [x] **Slow start** Implementing TCP slow start.
 
-- [ ] **Congestion Avoidance** 
+- [x] **Congestion Avoidance** 
 
-- [ ] **Fast Retransmit** 
+- [x] **Fast Retransmit** 
 
-- [ ] **Correct throughput plots** 
+- [x] **Correct throughput plots** 
 
-- [ ] **Correct CWND recording and plotting** 
+- [x] **Correct CWND recording and plotting** 
