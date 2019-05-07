@@ -13,11 +13,8 @@ def parse_throughput(filename):
     throughput_file = open(filename,"r")
     for line in throughput_file:
         tokens = line.split(",")
-        #pktsize.append((float(tokens[1])))
         pktsize.append(1450)
         times.append((float(tokens[0])))
-        # if float(tokens[0]) > 1488343998.112447+30.0:
-        #     break
 
     throughput_file.close()
     return times, pktsize
@@ -52,7 +49,6 @@ def calc_throughput(data, pktsize):
     for i, v in enumerate(data):
         if w < v:
             values.append(ctr*8.0/1000000.0)
-            #w = float(data[i] +float(1))
             w = float(w +float(1))
             ctr=0
 
@@ -71,6 +67,10 @@ parser.add_argument('--name', '-n',
 
 parser.add_argument('--trace', '-tr',
                     help="name of the trace",
+                    required=True)
+
+parser.add_argument('--window', '-cwnd',
+                    help="CSV file record for cwnd",
                     required=True)
 
 args = parser.parse_args()
@@ -118,6 +118,28 @@ plt.plot(timeDL, throughputDL, lw=2, color='r')
 
 plt.ylabel("Throughput (Mbps)")
 plt.xlabel("Time (s)")
-# plt.xlim([0,300])
 plt.grid(True, which="both")
 plt.savefig(args.dir+'/throughput.pdf',dpi=1000,bbox_inches='tight')
+
+# plotting CWND
+CWNDDL = []
+timeDL = []
+
+traceDL = open(args.window, 'r')
+traceDL.readline()
+
+start_time = float(traceDL.readline().strip().split(",")[0])
+
+for line in traceDL:
+    entry = line.strip().split(",")
+    time_elapsed = float(entry[0]) - start_time
+    if (time_elapsed not in timeDL):
+        timeDL.append(float(time_elapsed))
+        CWNDDL.append(int(entry[-1]))
+    
+plt.plot(timeDL, CWNDDL, lw=2, color='r')
+plt.ylabel("CWND (packets)")
+plt.xlabel("Time (s)")
+plt.xlim([timeDL[0], timeDL[-1]])
+plt.grid(True, which="both")
+plt.savefig(args.dir+'/CWND.pdf',dpi=1000,bbox_inches='tight')

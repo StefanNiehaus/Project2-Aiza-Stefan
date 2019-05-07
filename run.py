@@ -114,8 +114,7 @@ def RunTest(net):
 	h2 = net.get('router')
 	h1 = net.get('receiver')
 
-	# CLI(net)
-
+	# pipe `rdt_receiver` output to CSV
 	h1.cmd("./rdt2.0/obj/rdt_receiver 60001 FILE_RCVD 2> "+args.dir+"/"+args.name+"_receiver.csv &")
 
 	print("Begin " + str(args.time) + " seconds of transmission")
@@ -123,8 +122,8 @@ def RunTest(net):
 	h2.cmd('./cellsim/sender/cellsim1 ./'+ str(args.trace) + ' ' + str(args.trace) +' 00:00:00:00:00:01 '+str(args.loss)+' router-eth0 router-eth1  2> c1 &')
 	sleep(1)
 
-	h3.cmd("./rdt2.0/obj/rdt_sender 10.0.0.1 60001 small_file.bin 2> "+args.dir+"/"+args.name+"_sender.csv &")
-	# CLI (net)		
+	# pipe `rdt_sender` output to CSV
+	h3.cmd("./rdt2.0/obj/rdt_sender 10.0.0.1 60001 small_file.bin 2> "+args.dir+"/"+args.name+"_sender.csv &")	
 
 	sleep(args.time)
 

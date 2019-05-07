@@ -128,7 +128,7 @@ int main(int argc, char **argv) {
     error("ERROR on binding");
 
   // main loop: wait for a datagram, then echo it
-  VLOG(DEBUG, "epoch time, bytes received, sequence number");
+  VLOG(INFO, "epoch time, bytes received, sequence number");
 
   int clientlen = sizeof(clientaddr);  // byte size of client's address
   while (1) {
@@ -151,7 +151,7 @@ int main(int argc, char **argv) {
 
     // sendto: ACK back to the client
     gettimeofday(&tp, NULL);
-    VLOG(DEBUG, "Time: %lu, Data Size: %d, Seqno: %d", tp.tv_sec,
+    VLOG(INFO, "%lu, %d, %d", tp.tv_sec,
          recvpkt->hdr.data_size, recvpkt->hdr.seqno);
     VLOG(DEBUG, "Recieved packet: %d - Expected byte: %d\n", recvpkt->hdr.seqno,
          expected_seqno);
