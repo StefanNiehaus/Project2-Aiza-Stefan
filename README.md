@@ -1,5 +1,5 @@
 # Project2-Aiza-Stefan
-This project implements a simplified version of TCP with Window Size Scaling. The resulting reliable data transfer protocol between the sender and receiver may also be tested using `mininet`.
+This project implements a simplified version of TCP with Window Size Scaling. The resulting reliable data transfer protocol between the sender and receiver may also be tested using `mininet`. 
 
 Usage
 ---
@@ -15,6 +15,10 @@ The sender can send a file to the receiver as follows:
 ```
 $ ./rdt2.0/obj/rdt_sender <receiver_ip> <receiver_port> <file_name>
 ```
+
+Test using `mininet`
+---
+Transfer `cellsim` folder into root directory of repository after cloning. This folder contains the necessary configurations for seting up the simulated network. Also ensure that the supporting files for adjusting network traffic are in the root folder.
 
 The project is sub-divided into two tasks.
 
@@ -35,7 +39,7 @@ Task 2: Congestion Control
 
 - [x] **Receiver Buffer**
 
-- [x] **Slow start** Implementing TCP slow start.
+- [x] **Slow start**
 
 - [x] **Congestion Avoidance** 
 
